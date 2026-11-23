@@ -17,6 +17,18 @@ That is the right default for most devices, but it breaks two kinds of setup:
 
 Home Assistant has no per-device pin. Both cases are open upstream ([#602](https://github.com/Bluetooth-Devices/habluetooth/issues/602), [#628](https://github.com/Bluetooth-Devices/habluetooth/issues/628)), and the maintainer has said a pin would defeat the purpose of the library. So this lives outside it, for the integrations that need it.
 
+### Editorial: why this lives outside Home Assistant
+
+*This section is the maintainer's opinion.*
+
+When [habluetooth #628](https://github.com/Bluetooth-Devices/habluetooth/issues/628) proposed a way to pin a bonded device to its adapter, the maintainer replied: *"I don't think we can do any of the suggested solutions as they would defeat the whole purpose of this library."*
+
+Automatic routing is a real strength of Home Assistant's Bluetooth stack. For the large majority of devices, letting it choose the best adapter or proxy and fail over is exactly right, and this library leaves that untouched for everything it isn't asked to pin.
+
+But a device that requires a bond is not a niche case, and neither is a host with more than one path to it. Every ESPHome Bluetooth proxy is another path, and proxies are the standard way to extend Bluetooth range in Home Assistant, so most installations that care about Bluetooth have several. For a bonded device, routing by signal strength is not a preference but a correctness problem: only one of those paths can ever authenticate. Today the result is intermittent failures that are hard to diagnose. Users are told to disable proxies or unplug adapters. And each affected integration independently overrides the same private methods (see [Prior art](#prior-art)), and will break the same way if those methods change.
+
+A small, supported hook would serve users better than that, for example letting a connection name the scanner sources it may use, or a per-device "bonded to" hint. Until something like that exists, this library is one shared, tested place for the workaround instead of many copies.
+
 ## How it works
 
 `pinned_client_class()` returns a subclass of Home Assistant's own client wrapper (`HaBleakClientWrapper`) that overrides **one** method: the one that picks the connection path. Instead of every scanner that heard the device, habluetooth is offered:
