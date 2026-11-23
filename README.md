@@ -82,6 +82,15 @@ not using hci0 (22:22:22:22:22:22) (RSSI -40) (Home Assistant would have used hc
 
 Use it for a path that has worked before but should only be the second choice, such as a proxy that holds its own bond. It is tried only when no pinned scanner can take the connection, so a louder but stale fallback can never win over a working pinned adapter.
 
+## Prior art
+
+This was worked out independently, from habluetooth's own source, while debugging a bonded RV gateway. Other custom integrations reached the same approach separately, overriding the same habluetooth method to keep bonded devices on a local adapter:
+
+- [philips_shaver](https://github.com/mtheli/philips_shaver/pull/19), for Philips shavers bonded to the host adapter. It allows any local adapter, not specifically the one holding the bond.
+- [melitta-barista-ha](https://github.com/dzerik/melitta-barista-ha), for bonded Melitta coffee machines.
+
+This library packages the technique for reuse. It adds pinning to the specific bonded adapter (or any scanner source, proxies included), a lower-priority fallback tier, a post-connect path check, a BlueZ bond lookup, and a weekly check against new habluetooth releases.
+
 ## When not to use it
 
 - **Devices that don't need a particular path.** Home Assistant's own routing (best signal, free slots, failover) is better.
