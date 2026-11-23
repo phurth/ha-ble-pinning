@@ -102,7 +102,7 @@ Used by two custom integrations, [ha-onecontrol](https://github.com/phurth/ha-on
 - a host with two local adapters and a proxy, where it now consistently uses the bonded adapter even when another is louder;
 - a host with two local adapters, where Home Assistant had preferred the adapter without the bond: the pin consistently chose the bonded one. A working connection there is still awaiting confirmation, because that adapter turned out to be faulty.
 
-Version 0.1.0. Not published on PyPI. To use it, copy `src/ha_ble_pinning/` into your integration as a subpackage. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
+Version 0.1.0. Install it by adding `"ha-ble-pinning==0.1.0"` to your integration's `manifest.json` `requirements`. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
 
 ## License
 
