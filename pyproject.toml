@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ha-ble-pinning"
+version = "0.1.0"
+description = "Pin a Home Assistant Bluetooth connection to chosen adapters or proxies (for bonded devices and dedicated proxies)."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13"
+authors = [{ name = "phurth" }]
+classifiers = [
+    "Framework :: AsyncIO",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+]
+# bleak, bleak-retry-connector, habluetooth and dbus-fast are provided by Home
+# Assistant; no versions are pinned here so installing into Home Assistant
+# never conflicts with its own constraints.
+dependencies = ["bleak", "bleak-retry-connector"]
+
+[project.optional-dependencies]
+test = ["habluetooth", "dbus-fast", "pytest", "pytest-asyncio"]
+
+[project.urls]
+Homepage = "https://github.com/phurth/ha-ble-pinning"
+Issues = "https://github.com/phurth/ha-ble-pinning/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ha_ble_pinning"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
