@@ -90,6 +90,40 @@ AA:BB:CC:00:00:01: connecting through hci1 (11:11:11:11:11:11) (RSSI -60), a pin
 not using hci0 (22:22:22:22:22:22) (RSSI -40) (Home Assistant would have used hci0 …)
 ```
 
+### Letting the user choose the adapter
+
+For a device that doesn't bond, any path works, and Home Assistant's routing is usually right. But it balances only by signal strength and its own slot count. It can't know that a cheap adapter drops or refuses links well before the slot count it assumes: a Realtek USB adapter holding four connections, for example, may never complete a fifth. A per-device "Bluetooth adapter" option lets the user spread held connections across adapters and proxies by hand.
+
+`adapter_options()` builds the choices from the scanners that hear the device ("Automatic" first, then strongest first), and `establish_connection_via()` connects through the stored choice. `AUTOMATIC`, the default, is a plain `establish_connection` with Home Assistant's routing, so existing installs don't change.
+
+```python
+from homeassistant.components import bluetooth
+from homeassistant.helpers.selector import SelectOptionDict, SelectSelector, SelectSelectorConfig
+from ha_ble_pinning import AUTOMATIC, adapter_options, establish_connection_via
+
+# Options flow
+heard = bluetooth.async_scanner_devices_by_address(hass, address, connectable=True)
+choices = adapter_options(heard, current=entry.options.get("adapter"))
+schema = vol.Schema({
+    vol.Required("adapter", default=entry.options.get("adapter", AUTOMATIC)): SelectSelector(
+        SelectSelectorConfig(options=[SelectOptionDict(value=k, label=v) for k, v in choices.items()])
+    ),
+    vol.Required("adapter_fallback", default=True): bool,
+})
+
+# Connecting
+client = await establish_connection_via(
+    ble_device,
+    address,
+    adapter=entry.options.get("adapter", AUTOMATIC),
+    allow_fallback=entry.options.get("adapter_fallback", True),
+    scanner_devices=bluetooth.async_scanner_devices_by_address(hass, address, connectable=True),
+    disconnected_callback=self._on_disconnect,
+)
+```
+
+With fallback allowed, the other scanners that hear the device are used only when the chosen one has not heard it recently or has no free slot. A chosen adapter that accepts the connection and then fails does not trigger the fallback; the integration's normal retry applies. Don't offer this for bonded devices: only the adapter that holds the bond can authenticate.
+
 ### `fallback_sources`
 
 Use it for a path that has worked before but should only be the second choice, such as a proxy that holds its own bond. It is tried only when no pinned scanner can take the connection, so a louder but stale fallback can never win over a working pinned adapter.
@@ -123,7 +157,7 @@ Used by two custom integrations, [ha-onecontrol](https://github.com/phurth/ha-on
 - a host with two local adapters and a proxy, where it now consistently uses the bonded adapter even when another is louder;
 - a host with two local adapters, where Home Assistant had preferred the adapter without the bond: the pin consistently chose the bonded one. A working connection there is still awaiting confirmation, because that adapter turned out to be faulty.
 
-Version 0.1.0. Install it by adding `"ha-ble-pinning==0.1.0"` to your integration's `manifest.json` `requirements`. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
+Version 0.2.0 (adds the adapter picker; 0.1.0's API is unchanged). Add it to your integration's `manifest.json` `requirements` as a **range**, for example `"ha-ble-pinning>=0.2.0,<1"`, not an exact pin. Home Assistant installs one copy of a package for all custom integrations, so two integrations pinning different exact versions make it reinstall the package back and forth. Then whichever copy was imported first is the one every integration gets. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
 
 ## License
 

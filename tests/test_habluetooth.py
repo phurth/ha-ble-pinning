@@ -254,3 +254,82 @@ def test_establish_pinned_connection_end_to_end(scanners) -> None:
 
     assert FakeBackend.made == [f"/org/bluez/hci1/dev_{DEV}"]
     assert client.is_connected
+
+
+def _via(manager, monkeypatch, **kwargs):
+    """establish_connection_via against the real wrapper (Home Assistant's BleakClient)."""
+    import bleak  # noqa: PLC0415
+
+    monkeypatch.setattr(bleak, "BleakClient", wrappers.HaBleakClientWrapper)
+
+    async def none(device):
+        return []
+
+    async def no_cache(device):
+        return False
+
+    async def run():
+        with mock.patch.object(wrappers, "get_manager", return_value=manager), \
+             mock.patch.object(wrappers, "get_platform_client_backend_type",
+                               return_value=(FakeBackend, "BlueZ")), \
+             mock.patch.object(brc, "get_connected_devices", none), \
+             mock.patch.object(brc, "_has_valid_services_in_cache", no_cache):
+            return await ha_ble_pinning.establish_connection_via(
+                manager.devices[0].ble_device, DEVICE, max_attempts=2,
+                scanner_devices=manager.devices, **kwargs
+            )
+
+    FakeBackend.made = []
+    return asyncio.run(run())
+
+
+def test_via_automatic_leaves_routing_to_home_assistant(scanners, monkeypatch) -> None:
+    hci0, _, proxy = scanners
+    manager = FakeManager([_local(hci0, "hci0", -70), _proxy(proxy, -50)], [hci0, proxy])
+
+    _via(manager, monkeypatch, adapter=ha_ble_pinning.AUTOMATIC)
+
+    assert FakeBackend.made == [f"proxy:{PROXY}"]
+
+
+def test_via_chosen_adapter_beats_a_stronger_proxy(scanners, monkeypatch) -> None:
+    hci0, _, proxy = scanners
+    manager = FakeManager([_local(hci0, "hci0", -70), _proxy(proxy, -50)], [hci0, proxy])
+
+    client = _via(manager, monkeypatch, adapter=HCI0)
+
+    assert FakeBackend.made == [f"/org/bluez/hci0/dev_{DEV}"]
+    assert connection_path(client).source == HCI0
+
+
+def test_via_chosen_proxy_beats_a_stronger_adapter(scanners, monkeypatch) -> None:
+    hci0, _, proxy = scanners
+    manager = FakeManager([_local(hci0, "hci0", -40), _proxy(proxy, -80)], [hci0, proxy])
+
+    _via(manager, monkeypatch, adapter=PROXY)
+
+    assert FakeBackend.made == [f"proxy:{PROXY}"]
+
+
+def test_via_falls_back_when_the_choice_has_not_heard_the_device(scanners, monkeypatch) -> None:
+    hci0, hci1, proxy = scanners
+    manager = FakeManager([_local(hci0, "hci0", -70), _proxy(proxy, -50)], [hci0, hci1, proxy])
+
+    _via(manager, monkeypatch, adapter=HCI1)
+
+    assert FakeBackend.made == [f"proxy:{PROXY}"]
+
+
+def test_via_without_fallback_is_refused(scanners, monkeypatch) -> None:
+    hci0, hci1, proxy = scanners
+    manager = FakeManager([_local(hci0, "hci0", -70), _proxy(proxy, -50)], [hci0, hci1, proxy])
+
+    with pytest.raises(Exception) as caught:
+        _via(manager, monkeypatch, adapter=HCI1, allow_fallback=False)
+
+    chain, exc = [], caught.value
+    while exc is not None:
+        chain.append(exc)
+        exc = exc.__cause__
+    assert any(isinstance(e, PinnedAdapterUnavailable) for e in chain)
+    assert FakeBackend.made == []

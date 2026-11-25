@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ha-ble-pinning"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pin a Home Assistant Bluetooth connection to chosen adapters or proxies (for bonded devices and dedicated proxies)."
 readme = "README.md"
 license = "MIT"
