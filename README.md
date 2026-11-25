@@ -156,7 +156,7 @@ This library packages the technique for reuse. It adds pinning to the specific b
 
 ## Status
 
-Used by two custom integrations, [ha-onecontrol](https://github.com/phurth/ha-onecontrol) (Lippert OneControl RV gateways) and [ha-gopower](https://github.com/phurth/ha-gopower) (GoPower solar controllers). Tested on Home Assistant 2026.11 (habluetooth 7.1.x, bleak 3.x):
+Pinning to the bonded adapter is used by [ha-onecontrol](https://github.com/phurth/ha-onecontrol) (Lippert OneControl RV gateways) and [ha-gopower](https://github.com/phurth/ha-gopower) (GoPower solar controllers). The adapter picker (0.2) is used by [ha-easytouch](https://github.com/phurth/ha-easytouch), [ha-hughes](https://github.com/phurth/ha-hughes) and [ha-diamond-linq](https://github.com/phurth/ha-diamond-linq); with ha-easytouch it was checked live: the picker listed the local adapter and a proxy, and choosing the weaker proxy overrode Home Assistant's choice of the local adapter. Pinning to the bonded adapter was tested on Home Assistant 2026.11 (habluetooth 7.1.x, bleak 3.x):
 
 - a host with one local adapter and an ESPHome proxy, where Home Assistant had routed a bonded gateway through the proxy;
 - a host with two local adapters and a proxy, where it now consistently uses the bonded adapter even when another is louder;
