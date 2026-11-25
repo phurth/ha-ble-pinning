@@ -37,7 +37,7 @@ def test_duplicates_and_missing_rssi() -> None:
 
 def test_stored_choice_is_kept_when_not_heard() -> None:
     options = adapter_options([_heard(HCI0, "hci0", -60)], current=PROXY)
-    assert options[PROXY] == f"{PROXY} (not hearing this device right now)"
+    assert options[PROXY] == f"{PROXY} (not available right now)"
     # A choice that is heard is not listed twice, whatever its spelling.
     options = adapter_options([_heard(HCI0, "hci0", -60)], current=HCI0.replace(":", "").lower())
     assert len(options) == 2
@@ -47,3 +47,26 @@ def test_automatic_choices() -> None:
     assert is_automatic(None) and is_automatic("") and is_automatic(AUTOMATIC)
     assert not is_automatic(HCI0)
     assert list(adapter_options([], current=AUTOMATIC)) == [AUTOMATIC]
+
+
+def _scanner(source, name, connectable=True):
+    return SimpleNamespace(source=source, name=name, connectable=connectable)
+
+
+def test_known_scanners_are_listed_when_the_device_is_silent() -> None:
+    """A connected device stops advertising; the picker must still list the paths."""
+    options = adapter_options(
+        [],
+        scanners=[_scanner(PROXY, "proxy"), _scanner(HCI0, "hci0"), _scanner("44:44:44:44:44:44", "passive", False)],
+    )
+    assert list(options) == [AUTOMATIC, HCI0, PROXY]
+    assert options[HCI0] == "hci0"
+
+
+def test_heard_scanners_first_and_not_repeated() -> None:
+    options = adapter_options(
+        [_heard(PROXY, "proxy", -55)],
+        scanners=[_scanner(HCI0, "hci0"), _scanner(PROXY, "proxy")],
+    )
+    assert list(options) == [AUTOMATIC, PROXY, HCI0]
+    assert options[PROXY] == "proxy, -55 dBm"

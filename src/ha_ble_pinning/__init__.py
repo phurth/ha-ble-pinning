@@ -19,7 +19,7 @@ from .client import (
 from .connect import establish_pinned_connection
 from .path import ConnectionPath, connection_path, path_matches_pin
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "AUTOMATIC",

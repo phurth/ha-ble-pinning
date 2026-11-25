@@ -33,18 +33,28 @@ def _rssi(scanner_device: Any) -> int:
     return rssi if isinstance(rssi, int) else NO_RSSI
 
 
-def adapter_options(scanner_devices: Iterable[Any], current: str | None = None) -> dict[str, str]:
+def adapter_options(
+    scanner_devices: Iterable[Any],
+    current: str | None = None,
+    scanners: Iterable[Any] = (),
+) -> dict[str, str]:
     """Return ``{value: label}`` choices for an adapter picker, Automatic first.
 
     *scanner_devices* is what Home Assistant's
     ``bluetooth.async_scanner_devices_by_address(hass, address, connectable=True)``
     returns: one entry per adapter or proxy that has recently heard the device,
     with ``.scanner.source``, ``.scanner.name`` and ``.advertisement.rssi``.
-    They are listed strongest first, labelled with the scanner's name and the
-    signal it hears.  The value is the scanner source (adapter or proxy MAC).
+    They come first, strongest first, labelled with the signal they hear.
 
-    *current*, the stored choice, stays in the list even when it has not heard
-    the device lately, so saving the form never silently drops it.
+    *scanners* is every scanner Home Assistant knows
+    (``bluetooth.async_current_scanners(hass)``). Pass it for devices that hold
+    a connection: a connected device usually stops advertising, so after a few
+    minutes no scanner "hears" it and *scanner_devices* is empty. Connectable
+    scanners not already listed follow, by name. The value is the scanner
+    source (adapter or proxy MAC).
+
+    *current*, the stored choice, stays in the list even when no scanner with
+    that source is known right now, so saving the form never silently drops it.
     """
     options = {AUTOMATIC: AUTOMATIC_LABEL}
     seen: set[str] = set()
@@ -57,8 +67,21 @@ def adapter_options(scanner_devices: Iterable[Any], current: str | None = None) 
         name = getattr(scanner, "name", None) or source
         rssi = _rssi(device)
         options[source] = f"{name}, {rssi} dBm" if rssi != NO_RSSI else name
+    others = []
+    for scanner in scanners:
+        source = getattr(scanner, "source", None)
+        if (
+            not isinstance(source, str)
+            or getattr(scanner, "connectable", True) is False
+            or normalize_source(source) in seen
+        ):
+            continue
+        seen.add(normalize_source(source))
+        others.append((getattr(scanner, "name", None) or source, source))
+    for name, source in sorted(others):
+        options[source] = name
     if not is_automatic(current) and normalize_source(current) not in seen:
-        options[current] = f"{current} (not hearing this device right now)"
+        options[current] = f"{current} (not available right now)"
     return options
 
 

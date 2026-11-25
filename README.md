@@ -94,7 +94,7 @@ not using hci0 (22:22:22:22:22:22) (RSSI -40) (Home Assistant would have used hc
 
 For a device that doesn't bond, any path works, and Home Assistant's routing is usually right. But it balances only by signal strength and its own slot count. It can't know that a cheap adapter drops or refuses links well before the slot count it assumes: a Realtek USB adapter holding four connections, for example, may never complete a fifth. A per-device "Bluetooth adapter" option lets the user spread held connections across adapters and proxies by hand.
 
-`adapter_options()` builds the choices from the scanners that hear the device ("Automatic" first, then strongest first), and `establish_connection_via()` connects through the stored choice. `AUTOMATIC`, the default, is a plain `establish_connection` with Home Assistant's routing, so existing installs don't change.
+`adapter_options()` builds the choices: "Automatic" first, then the scanners that hear the device (strongest first), then any other connectable scanner (a device that holds a connection usually stops advertising), and `establish_connection_via()` connects through the stored choice. `AUTOMATIC`, the default, is a plain `establish_connection` with Home Assistant's routing, so existing installs don't change.
 
 ```python
 from homeassistant.components import bluetooth
@@ -103,7 +103,12 @@ from ha_ble_pinning import AUTOMATIC, adapter_options, establish_connection_via
 
 # Options flow
 heard = bluetooth.async_scanner_devices_by_address(hass, address, connectable=True)
-choices = adapter_options(heard, current=entry.options.get("adapter"))
+choices = adapter_options(
+    heard,
+    current=entry.options.get("adapter"),
+    # A device holding a connection stops advertising, so list every known scanner too.
+    scanners=bluetooth.async_current_scanners(hass),
+)
 schema = vol.Schema({
     vol.Required("adapter", default=entry.options.get("adapter", AUTOMATIC)): SelectSelector(
         SelectSelectorConfig(options=[SelectOptionDict(value=k, label=v) for k, v in choices.items()])
@@ -157,7 +162,7 @@ Used by two custom integrations, [ha-onecontrol](https://github.com/phurth/ha-on
 - a host with two local adapters and a proxy, where it now consistently uses the bonded adapter even when another is louder;
 - a host with two local adapters, where Home Assistant had preferred the adapter without the bond: the pin consistently chose the bonded one. A working connection there is still awaiting confirmation, because that adapter turned out to be faulty.
 
-Version 0.2.0 (adds the adapter picker; 0.1.0's API is unchanged). Add it to your integration's `manifest.json` `requirements` as a **range**, for example `"ha-ble-pinning>=0.2.0,<1"`, not an exact pin. Home Assistant installs one copy of a package for all custom integrations, so two integrations pinning different exact versions make it reinstall the package back and forth. Then whichever copy was imported first is the one every integration gets. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
+Version 0.2.1 (0.2 adds the adapter picker; 0.1.0's API is unchanged). Add it to your integration's `manifest.json` `requirements` as a **range**, for example `"ha-ble-pinning>=0.2.1,<1"`, not an exact pin. Home Assistant installs one copy of a package for all custom integrations, so two integrations pinning different exact versions make it reinstall the package back and forth. Then whichever copy was imported first is the one every integration gets. It has no Home Assistant imports and no dependencies beyond what Home Assistant already ships.
 
 ## License
 
